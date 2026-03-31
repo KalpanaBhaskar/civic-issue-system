@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum Category {
+  ROAD
+  WASTE
+  WATER
+  TRAFFIC
+  STREETLIGHT
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum Status {
+  UNDER_REVIEW
+  IN_PROGRESS
+  RESOLVED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Issue {
+  id            String    @id @default(uuid())
+  sessionId     String?   @map("session_id")
+  category      Category
+  description   String
+  images        String[]
+  latitude      Float
+  longitude     Float
+  severity      Severity
+  status        Status    @default(UNDER_REVIEW)
+  duplicateOfId String?   @map("duplicate_of")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  resolvedAt    DateTime? @map("resolved_at")
+
+  duplicateOf Issue?  @relation("IssueDuplicates", fields: [duplicateOfId], references: [id])
+  duplicates  Issue[] @relation("IssueDuplicates")
+  feedbacks   Feedback[]
+
+  @@index([category, severity, status])
+  @@index([latitude, longitude])
+  @@index([duplicateOfId])
+  @@map("issues")
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  issueId   String   @map("issue_id")
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+  @@map("feedback")
+}
