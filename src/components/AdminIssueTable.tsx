@@ -15,8 +15,47 @@ type Issue = {
   longitude: number;
   images: string[];
   duplicateOfId?: string | null;
+  createdAt?: string | Date;
+  resolvedAt?: string | Date | null;
   feedbacks: Array<{ id: string; rating: number; comment: string }>;
 };
+
+function timeAgo(input: string | Date | undefined | null) {
+  if (!input) return "";
+  const date = typeof input === "string" ? new Date(input) : input;
+  if (Number.isNaN(date.getTime())) return "";
+
+  const diffMs = Date.now() - date.getTime();
+  const seconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (seconds < 60) return `${seconds} seconds ago`;
+  if (minutes < 60) return `${minutes} minutes ago`;
+  if (hours < 24) return `${hours} hours ago`;
+  if (days < 14) return `${days} days ago`;
+
+  return date.toLocaleDateString();
+}
+
+function formatDuration(from: string | Date, to: string | Date) {
+  const start = typeof from === "string" ? new Date(from) : from;
+  const end = typeof to === "string" ? new Date(to) : to;
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return "";
+
+  const diffMs = end.getTime() - start.getTime();
+  const seconds = Math.max(0, Math.floor(diffMs / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+
+  if (days > 0) return `${days}d ${remHours}h`;
+  if (hours > 0) return `${hours}h`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${seconds}s`;
+}
 
 export function AdminIssueTable({ initialIssues }: { initialIssues: Issue[] }) {
   const [issues, setIssues] = useState(initialIssues);
@@ -40,6 +79,12 @@ export function AdminIssueTable({ initialIssues }: { initialIssues: Issue[] }) {
             <div>
               <h3 className="text-base font-semibold text-slate-900">{issue.category}</h3>
               <p className="text-xs text-slate-500">Issue ID: {issue.id.slice(0, 8)}...</p>
+              <p className="mt-1 text-xs text-slate-500">Reported: {timeAgo(issue.createdAt)}</p>
+              {issue.status === "RESOLVED" && issue.resolvedAt && (
+                <p className="mt-1 text-xs font-medium text-emerald-700">
+                  Resolution time: {formatDuration(issue.createdAt ?? issue.resolvedAt, issue.resolvedAt)}
+                </p>
+              )}
             </div>
             <StatusBadge status={issue.status} />
           </div>
@@ -55,7 +100,17 @@ export function AdminIssueTable({ initialIssues }: { initialIssues: Issue[] }) {
               ))}
             </div>
             <div className="rounded-xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-2">
-              <GoogleMapView lat={issue.latitude} lng={issue.longitude} />
+              <GoogleMapView
+                markers={[
+                  {
+                    lat: issue.latitude,
+                    lng: issue.longitude,
+                    category: issue.category,
+                    severity: issue.severity as "LOW" | "MEDIUM" | "HIGH",
+                    description: issue.description,
+                  },
+                ]}
+              />
             </div>
           </div>
 

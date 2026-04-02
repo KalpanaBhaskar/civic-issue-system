@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { haversineDistanceMeters, textSimilarity } from "@/lib/utils";
+import { haversineDistanceMeters } from "@/lib/utils";
 import { issueCreateSchema } from "@/lib/validations";
 import { uploadIssueImages } from "@/lib/upload";
 
@@ -51,11 +51,35 @@ export async function POST(request: NextRequest) {
       take: 100,
     });
 
+    const normalizeForMatch = (value: string) =>
+      value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
+    const tokenSet = (value: string) =>
+      new Set(
+        normalizeForMatch(value)
+          .split(" ")
+          .map((t) => t.trim())
+          .filter((t) => t.length >= 3)
+      );
+
     let duplicateOfId: string | null = null;
     for (const issue of candidates) {
       const distance = haversineDistanceMeters(parsed.latitude, parsed.longitude, issue.latitude, issue.longitude);
-      const similarity = textSimilarity(parsed.description, issue.description);
-      if (distance < 100 && similarity >= 0.35) {
+
+      // Similarity: simple includes / token match (cheap but effective for hackathon/demo).
+      const a = normalizeForMatch(parsed.description);
+      const b = normalizeForMatch(issue.description);
+
+      const includesMatch = a.length > 0 && b.length > 0 && (a.includes(b) || b.includes(a));
+      const aTokens = tokenSet(a);
+      const bTokens = tokenSet(b);
+      const minTokenCount = Math.min(aTokens.size, bTokens.size);
+      const intersectionCount = [...aTokens].filter((t) => bTokens.has(t)).length;
+      const tokenMatchRatio = minTokenCount === 0 ? 0 : intersectionCount / minTokenCount;
+
+      const descriptionMatch = includesMatch || tokenMatchRatio >= 0.4;
+
+      if (distance <= 100 && descriptionMatch) {
         duplicateOfId = issue.id;
         break;
       }

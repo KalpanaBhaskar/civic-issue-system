@@ -1,6 +1,7 @@
 import L from "leaflet";
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+const iconDefaultProto = L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown };
+delete iconDefaultProto._getIconUrl;
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png",

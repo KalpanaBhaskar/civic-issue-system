@@ -10,9 +10,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const [totalIssues, issuesPerCategory, allResolved, locationClusters] = await Promise.all([
+    const [totalIssues, issuesPerCategory, issuesPerSeverity, allResolved, locationClusters] = await Promise.all([
       prisma.issue.count(),
       prisma.issue.groupBy({ by: ["category"], _count: { category: true } }),
+      prisma.issue.groupBy({ by: ["severity"], _count: { severity: true } }),
       prisma.issue.findMany({
         where: { status: "RESOLVED", resolvedAt: { not: null } },
         select: { createdAt: true, resolvedAt: true },
@@ -45,6 +46,7 @@ export async function GET() {
     return NextResponse.json({
       totalIssues,
       issuesPerCategory,
+      issuesPerSeverity,
       topLocations,
       avgResolutionHours,
     });
